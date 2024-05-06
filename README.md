@@ -1,77 +1,72 @@
-# Health Marketplace Module
-
-The Health Marketplace module facilitates the management of health services, allowing patients to interact with healthcare providers in a decentralized manner. It offers functionalities for creating, booking, performing, and disputing health services, as well as handling payments and refunds.
+# Supply Chain Module
+The Supply Chain module facilitates the management of orders and transactions within a supply chain system. It provides functionalities for creating orders, accepting orders, fulfilling orders, handling disputes, releasing payments, updating orders, and managing escrow balances.
 
 ## Struct Definitions
 
-### HealthService
-- **id**: Unique identifier for the health service.
-- **patient**: Address of the patient requesting the service.
-- **provider**: Optional address of the healthcare provider assigned to perform the service.
-- **description**: Description of the health service.
-- **price**: Price of the health service.
-- **escrow**: Balance of SUI tokens held in escrow for the service.
-- **servicePerformed**: Boolean indicating whether the service has been performed.
-- **dispute**: Boolean indicating whether there is a dispute regarding the service.
-
-### HealthcareProvider
-- **id**: Unique identifier for the healthcare provider.
-- **provider_address**: Address of the healthcare provider.
-- **name**: Name of the healthcare provider.
-- **specialties**: Specialties offered by the healthcare provider.
-- **location**: Address or geographic coordinates of the healthcare provider.
-- **contact_info**: Contact information for the healthcare provider.
-
-### MedicalRecord
-- **id**: Unique identifier for the medical record.
-- **patient**: Address of the patient associated with the medical record.
-- **diagnosis**: Details of the diagnosis.
-- **treatment**: Details of the treatment.
-- **prescriptions**: Details of the prescriptions.
+### Order
+- **id**: Unique identifier for the order.
+- **buyer**: Address of the buyer placing the order.
+- **product**: Description of the product being ordered.
+- **quantity**: Quantity of the product.
+- **price**: Price per unit of the product.
+- **escrow**: Balance of SUI tokens held in escrow for the order.
+- **dispute**: Boolean indicating whether there is a dispute regarding the order.
+- **rating**: Optional rating given by the buyer to the supplier.
+- **status**: Status of the order.
+- **supplier**: Optional address of the supplier fulfilling the order.
+- **orderFulfilled**: Boolean indicating whether the order has been fulfilled.
+- **created_at**: Timestamp of when the order was created.
+- **deadline**: Deadline for fulfilling the order.
 
 ## Public - Entry Functions
 
-### create_service
-Creates a new health service listing with the provided description and price.
+### create_order
+Creates a new order with the provided product description, quantity, price, and duration.
 
-### request_service
-Requests a health service, assigning the patient as the requester.
+### accept_order
+Allows a supplier to accept an order they are willing to fulfill.
 
-### perform_service
-Marks a health service as performed by the assigned healthcare provider.
+### fulfill_order
+Marks an order as fulfilled by the assigned supplier.
 
-### dispute_service
-Initiates a dispute regarding a health service.
+### mark_order_complete
+Marks an order as complete, indicating successful fulfillment.
 
-### resolve_service_dispute
-Resolves a dispute regarding a health service, either refunding the patient or paying the provider.
+### dispute_order
+Initiates a dispute regarding an order.
 
-### pay_for_service
-Finalizes the payment for a health service performed by the provider.
+### resolve_dispute
+Resolves a dispute regarding an order, either refunding the buyer or paying the supplier.
 
-### cancel_service
-Cancels a health service, refunding the patient if not yet performed.
+### release_payment
+Finalizes the payment for an order fulfilled by the supplier.
 
-### update_service_description
-Updates the description of a health service.
+### cancel_order
+Cancels an order, refunding the buyer if not yet fulfilled.
 
-### update_service_price
-Updates the price of a health service.
+### rate_supplier
+Allows the buyer to rate the supplier upon order completion.
 
-### add_funds_to_service
-Adds funds to the escrow balance for a health service.
+### update_product
+Updates the product description for an existing order.
 
-### request_refund_for_service
-Requests a refund for a health service that has not been performed.
+### update_order_price
+Updates the price of an existing order.
 
-### update_service_provider
-Updates the healthcare provider assigned to a health service.
+### update_order_quantity
+Updates the quantity of an existing order.
 
-### book_appointment
-Books an appointment with a specific healthcare provider.
+### update_order_deadline
+Updates the deadline for fulfilling an existing order.
 
-### cancel_appointment
-Cancels a previously booked appointment.
+### update_order_status
+Updates the status of an existing order.
+
+### add_funds_to_order
+Adds funds to the escrow balance for an existing order.
+
+### request_refund
+Requests a refund for an order that has not been fulfilled.
 
 ## Setup
 
@@ -83,7 +78,7 @@ Cancels a previously booked appointment.
 
 ### Build and Deploy
 
-1. Clone the Health Marketplace repository and navigate to the project directory on your local machine.
+1. Clone the Supply Chain module repository and navigate to the project directory on your local machine.
 
 2. Compile the smart contract code using the Rust compiler:
 
@@ -97,32 +92,27 @@ Cancels a previously booked appointment.
 
 ## Usage
 
-### Creating a Health Service
+### Creating an Order
 
-To create a new health service listing, invoke the `create_service` function with the required service details, including description and price.
+To create a new order, invoke the `create_order` function with the required order details, including product description, quantity, price, and duration.
 
-### Requesting a Service
+### Accepting and Fulfilling Orders
 
-Patients can request healthcare services by placing bids on available listings using the `request_service` function.
-
-### Performing a Service
-
-Healthcare providers can mark services as performed using the `perform_service` function upon completing the service for the patient.
+Suppliers can accept and fulfill orders using the `accept_order` and `fulfill_order` functions, respectively.
 
 ### Managing Disputes
 
-In case of disputes, either party can initiate dispute resolution procedures using the `dispute_service` function to seek a fair resolution.
+In case of disputes, either party can initiate dispute resolution procedures using the `dispute_order` function to seek a fair resolution.
 
-### Completing a Transaction
+### Completing Transactions
 
-Upon successful service delivery, patients can finalize the transaction by paying for the service using the `pay_for_service` function.
+Upon successful order fulfillment, the payment can be finalized using the `release_payment` function.
 
 ### Additional Functions
 
-- **Updating Service Details**: Patients can update service descriptions or prices using the `update_service_description` and `update_service_price` functions, respectively.
-- **Adding Funds to Service**: Patients can add funds to the escrow balance for a specific service using the `add_funds_to_service` function.
-- **Requesting Refund**: Patients can request a refund for a service that has not been performed using the `request_refund_for_service` function.
-- **Updating Service Provider**: Patients can update the assigned healthcare provider for a service using the `update_service_provider` function.
+- **Updating Order Details**: Buyers can update order details such as product description, price, quantity, deadline, and status using the corresponding update functions.
+- **Adding Funds to Escrow**: Buyers can add funds to the escrow balance for an order using the `add_funds_to_order` function.
+- **Requesting Refunds**: Buyers can request refunds for orders that have not been fulfilled using the `request_refund` function.
 
 ## Interacting with the Smart Contract
 
@@ -130,14 +120,14 @@ Upon successful service delivery, patients can finalize the transaction by payin
 
 1. Use the SUI CLI to interact with the deployed smart contract, providing function arguments and transaction contexts as required.
 
-2. Monitor transaction outputs and blockchain events to track the status of service listings and transactions.
+2. Monitor transaction outputs and blockchain events to track the status of orders and transactions.
 
 ### Using Web Interfaces (Optional)
 
 1. Develop web interfaces or applications that interact with the smart contract using JavaScript libraries such as Web3.js or Ethers.js.
 
-2. Implement user-friendly interfaces for creating service listings, placing bids, and managing transactions on the Health Marketplace platform.
+2. Implement user-friendly interfaces for creating orders, managing disputes, and completing transactions on the Supply Chain platform.
 
 ## Conclusion
 
-The Health Marketplace Smart Contract offers a decentralized solution for managing healthcare services, promoting accessibility, transparency, and efficiency in the healthcare industry. By leveraging blockchain technology, patients and healthcare providers can engage in secure and transparent transactions, ultimately improving the overall healthcare experience for all stakeholders.
+The Supply Chain Smart Contract offers a decentralized solution for managing orders and transactions within a supply chain system, promoting efficiency, transparency, and trust among participants. By leveraging blockchain technology, buyers and suppliers can engage in secure and transparent transactions, ultimately improving the overall supply chain management process.
