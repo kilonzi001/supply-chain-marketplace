@@ -1,5 +1,4 @@
 module supply_chain::supply_chain {
-
     // Imports
     use sui::transfer;
     use sui::sui::SUI;
@@ -9,7 +8,7 @@ module supply_chain::supply_chain {
     use sui::balance::{Self, Balance};
     use sui::tx_context::{Self, TxContext};
     use std::option::{Option, none, some, is_some, contains, borrow};
-    
+
     // Errors
     const EInvalidOrder: u64 = 1;
     const EInvalidProduct: u64 = 2;
@@ -19,7 +18,7 @@ module supply_chain::supply_chain {
     const EInvalidWithdrawal: u64 = 6;
     const EDeadlinePassed: u64 = 7;
     const EInsufficientEscrow: u64 = 8;
-    
+
     // Struct definitions
 
     // Order struct
@@ -45,7 +44,7 @@ module supply_chain::supply_chain {
         buyer: address,
         review: vector<u8>,
     }
-    
+
     // Accessors
     public entry fun get_product(order: &Order): vector<u8> {
         order.product
@@ -67,7 +66,6 @@ module supply_chain::supply_chain {
 
     // Create a new order
     public entry fun create_order(product: vector<u8>, quantity: u64, price: u64, clock: &Clock, duration: u64, open: vector<u8>, ctx: &mut TxContext) {
-        
         let order_id = object::new(ctx);
         let deadline = clock::timestamp_ms(clock) + duration;
         transfer::share_object(Order {
@@ -86,15 +84,15 @@ module supply_chain::supply_chain {
             deadline: deadline,
         });
     }
-    
+
     // Supplier accepts the order
     public entry fun accept_order(order: &mut Order, ctx: &mut TxContext) {
         assert!(!is_some(&order.supplier), EInvalidOrder);
         order.supplier = some(tx_context::sender(ctx));
     }
-    
-    // Fulfill order
-    public entry fun fulfill_order(order: &mut Order, clock: &Clock, ctx: &mut TxContext) {
+
+    // Mark order as fulfilled
+    public entry fun mark_order_fulfilled(order: &mut Order, clock: &Clock, ctx: &mut TxContext) {
         assert!(contains(&order.supplier, &tx_context::sender(ctx)), EInvalidProduct);
         assert!(clock::timestamp_ms(clock) < order.deadline, EDeadlinePassed);
         order.orderFulfilled = true;
@@ -105,86 +103,87 @@ module supply_chain::supply_chain {
         assert!(contains(&order.supplier, &tx_context::sender(ctx)), ENotSupplier);
         order.orderFulfilled = true;
     }
-    
+
     // Raise a dispute
     public entry fun dispute_order(order: &mut Order, ctx: &mut TxContext) {
         assert!(order.buyer == tx_context::sender(ctx), EDispute);
         order.dispute = true;
     }
-    
+
+    // Transfer funds from escrow to the supplier
+    fun transfer_funds_to_supplier(order: &mut Order, ctx: &mut TxContext) {
+        let supplier = *borrow(&order.supplier);
+        let escrow_amount = balance::value(&order.escrow);
+        let escrow_coin = coin::take(&mut order.escrow, escrow_amount, ctx);
+        transfer::public_transfer(escrow_coin, supplier);
+    }
+
+    // Reset the order state
+    fun reset_order_state(order: &mut Order) {
+        order.supplier = none();
+        order.orderFulfilled = false;
+        order.dispute = false;
+    }
+
     // Resolve dispute if any between buyer and supplier
     public entry fun resolve_dispute(order: &mut Order, resolved: bool, ctx: &mut TxContext) {
         assert!(order.buyer == tx_context::sender(ctx), EDispute);
         assert!(order.dispute, EAlreadyResolved);
         assert!(is_some(&order.supplier), EInvalidOrder);
-        let escrow_amount = balance::value(&order.escrow);
-        let escrow_coin = coin::take(&mut order.escrow, escrow_amount, ctx);
+
         if (resolved) {
-            let supplier = *borrow(&order.supplier);
-            // Transfer funds to the supplier
-            transfer::public_transfer(escrow_coin, supplier);
+            transfer_funds_to_supplier(order, ctx);
         } else {
-            // Refund funds to the buyer
+            let escrow_amount = balance::value(&order.escrow);
+            let escrow_coin = coin::take(&mut order.escrow, escrow_amount, ctx);
             transfer::public_transfer(escrow_coin, order.buyer);
-        };
-        
-        // Reset order state
-        order.supplier = none();
-        order.orderFulfilled = false;
-        order.dispute = false;
+        }
+
+        reset_order_state(order);
     }
-    
+
     // Release payment to the supplier after order is fulfilled
     public entry fun release_payment(order: &mut Order, clock: &Clock, review: vector<u8>, ctx: &mut TxContext) {
         assert!(order.buyer == tx_context::sender(ctx), ENotSupplier);
         assert!(order.orderFulfilled && !order.dispute, EInvalidProduct);
         assert!(clock::timestamp_ms(clock) > order.deadline, EDeadlinePassed);
         assert!(is_some(&order.supplier), EInvalidOrder);
-        let supplier = *borrow(&order.supplier);
-        let escrow_amount = balance::value(&order.escrow);
-        assert!(escrow_amount > 0, EInsufficientEscrow); // Ensure there are enough funds in escrow
-        let escrow_coin = coin::take(&mut order.escrow, escrow_amount, ctx);
-        // Transfer funds to the supplier
-        transfer::public_transfer(escrow_coin, supplier);
+        assert!(balance::value(&order.escrow) > 0, EInsufficientEscrow); // Ensure there are enough funds in escrow
+
+        transfer_funds_to_supplier(order, ctx);
 
         // Create a new product record
         let productRecord = ProductRecord {
-            id: object::new(ctx),
-            buyer: tx_context::sender(ctx),
-            review: review,
-        };
+    id: object::new(ctx),
+    buyer: tx_context::sender(ctx),
+    review: review,
+};
 
-        // Change accessiblity of product record
-        transfer::public_transfer(productRecord, tx_context::sender(ctx));
+// Change accessibility of product record
+transfer::public_transfer(productRecord, tx_context::sender(ctx));
 
-        // Reset order state
-        order.supplier = none();
-        order.orderFulfilled = false;
-        order.dispute = false;
+reset_order_state(order);
     }
 
-    // Add more cash at escrow
+    // Add more cash to escrow
     public entry fun add_funds(order: &mut Order, amount: Coin<SUI>, ctx: &mut TxContext) {
         assert!(tx_context::sender(ctx) == order.buyer, ENotSupplier);
         let added_balance = coin::into_balance(amount);
         balance::join(&mut order.escrow, added_balance);
     }
-    
+
     // Cancel order
     public entry fun cancel_order(order: &mut Order, ctx: &mut TxContext) {
         assert!(order.buyer == tx_context::sender(ctx) || contains(&order.supplier, &tx_context::sender(ctx)), ENotSupplier);
-        
+
         // Refund funds to the buyer if not yet paid
         if (is_some(&order.supplier) && !order.orderFulfilled && !order.dispute) {
             let escrow_amount = balance::value(&order.escrow);
             let escrow_coin = coin::take(&mut order.escrow, escrow_amount, ctx);
             transfer::public_transfer(escrow_coin, order.buyer);
-        };
-        
-        // Reset order state
-        order.supplier = none();
-        order.orderFulfilled = false;
-        order.dispute = false;
+        }
+
+        reset_order_state(order);
     }
 
     // Rate the supplier
@@ -192,13 +191,13 @@ module supply_chain::supply_chain {
         assert!(order.buyer == tx_context::sender(ctx), ENotSupplier);
         order.rating = some(rating);
     }
-    
+
     // Update product
     public entry fun update_product(order: &mut Order, new_product: vector<u8>, ctx: &mut TxContext) {
         assert!(order.buyer == tx_context::sender(ctx), ENotSupplier);
         order.product = new_product;
     }
-    
+
     // Update order price
     public entry fun update_order_price(order: &mut Order, new_price: u64, ctx: &mut TxContext) {
         assert!(order.buyer == tx_context::sender(ctx), ENotSupplier);
@@ -216,7 +215,7 @@ module supply_chain::supply_chain {
         assert!(order.buyer == tx_context::sender(ctx), ENotSupplier);
         order.deadline = new_deadline;
     }
-    
+
     // Update order status
     public entry fun update_order_status(order: &mut Order, completed: vector<u8>, ctx: &mut TxContext) {
         assert!(order.buyer == tx_context::sender(ctx), ENotSupplier);
@@ -229,7 +228,7 @@ module supply_chain::supply_chain {
         let added_balance = coin::into_balance(amount);
         balance::join(&mut order.escrow, added_balance);
     }
-    
+
     // Withdraw funds from escrow
     public entry fun request_refund(order: &mut Order, ctx: &mut TxContext) {
         assert!(tx_context::sender(ctx) == order.buyer, ENotSupplier);
@@ -237,12 +236,8 @@ module supply_chain::supply_chain {
 
         let escrow_amount = balance::value(&order.escrow);
         let escrow_coin = coin::take(&mut order.escrow, escrow_amount, ctx);
-        // Refund funds to the buyer
         transfer::public_transfer(escrow_coin, order.buyer);
 
-        // Reset order state
-        order.supplier = none();
-        order.orderFulfilled = false;
-        order.dispute = false;
+        reset_order_state(order);
     }
-}    
+}
